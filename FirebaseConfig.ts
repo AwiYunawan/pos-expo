@@ -26,4 +26,5 @@ export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(ReactNativeAsyncStorage),
 });
 // const analytics = getAnalytics(app);
-const db = getFirestore(app);
+export const db = getFirestore(app);
+

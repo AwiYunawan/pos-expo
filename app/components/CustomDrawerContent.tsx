@@ -21,7 +21,8 @@ const CustomDrawerContent = (props: any) => {
       <DrawerItem label="Transaksi" icon={({ color, size }) => <Ionicons name="cash" color={color} size={size} />} onPress={() => router.push("/transaksi")} />
       <DrawerItem label="Pemasukan" icon={({ color, size }) => <Ionicons name="trending-up" color={color} size={size} />} onPress={() => router.push("/pemasukan")} />
       <DrawerItem label="Pengeluaran" icon={({ color, size }) => <Ionicons name="trending-down" color={color} size={size} />} onPress={() => router.push("/pengeluaran")} />
-      <DrawerItem label="Coba" icon={({ color, size }) => <Ionicons name="trending-down" color={color} size={size} />} onPress={() => router.push("/coba/index")} />
+      <DrawerItem label="Firestore" icon={({ color, size }) => <Ionicons name="trending-down" color={color} size={size} />} onPress={() => router.push("/coba")} />
+      <DrawerItem label="Storage" icon={({ color, size }) => <Ionicons name="trending-down" color={color} size={size} />} onPress={() => router.push("/coba2/index")} />
 
       <DrawerItem
         label="Sign Out"
