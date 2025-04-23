@@ -22,7 +22,7 @@ const CustomDrawerContent = (props: any) => {
       <DrawerItem label="Pemasukan" icon={({ color, size }) => <Ionicons name="trending-up" color={color} size={size} />} onPress={() => router.push("/pemasukan")} />
       <DrawerItem label="Pengeluaran" icon={({ color, size }) => <Ionicons name="trending-down" color={color} size={size} />} onPress={() => router.push("/pengeluaran")} />
       <DrawerItem label="Firestore" icon={({ color, size }) => <Ionicons name="trending-down" color={color} size={size} />} onPress={() => router.push("/coba")} />
-      <DrawerItem label="Storage" icon={({ color, size }) => <Ionicons name="trending-down" color={color} size={size} />} onPress={() => router.push("/coba2/index")} />
+      <DrawerItem label="Function" icon={({ color, size }) => <Ionicons name="trending-down" color={color} size={size} />} onPress={() => router.push("/coba2/index")} />
 
       <DrawerItem
         label="Sign Out"
