@@ -24,7 +24,7 @@ const index = () => {
     const testFunction = httpsCallable(functions, "testFunction");
     try {
       const result = await testFunction({ message: "Hello from React Native!" });
-      setResponse(result.data);
+      setResponse(result.data as string);
     } catch (error) {
       console.error("Error calling function:", error);
     }
