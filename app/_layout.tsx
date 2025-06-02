@@ -1,10 +1,6 @@
-import { Slot } from 'expo-router';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import React from 'react';
+import MainNavigator from '../app/router/MainNavigator';
 
-export default function Layout() {
-  return (
-    <SafeAreaProvider>
-      <Slot />
-    </SafeAreaProvider>
-  );
+export default function App() {
+  return <MainNavigator />;
 }
