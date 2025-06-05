@@ -1,5 +1,5 @@
 // app/screens/pengeluaran/PengeluaranPage.tsx
-import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, Timestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, getDoc, setDoc, Timestamp, updateDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import { Alert, Button, FlatList, StyleSheet, Text, TextInput, View } from "react-native";
 import { db } from "../../FirebaseConfig";
@@ -27,13 +27,29 @@ const addPengeluaran = async (jumlah: number, keterangan: string) => {
   return docRef;
 };
 
-const updatePengeluaran = async (id: string, jumlah: number, keterangan: string) => {
-  const waktu = Timestamp.now();
-  await updateDoc(doc(db, "pengeluaran", id), { jumlah, keterangan, waktu });
-};
-
 const deletePengeluaran = async (id: string) => {
-  await deleteDoc(doc(db, "pengeluaran", id));
+  const pengeluaranDoc = doc(db, 'pengeluaran', id);
+  const snapshot = await getDoc(pengeluaranDoc);
+
+  if (!snapshot.exists()) return;
+
+  const { jumlah, waktu } = snapshot.data();
+  const tanggal = new Date(waktu.seconds * 1000).toISOString().split('T')[0];
+  const laporanRef = doc(db, 'laporan', tanggal);
+
+  const laporanSnapshot = await getDoc(laporanRef);
+  if (laporanSnapshot.exists()) {
+    const current = laporanSnapshot.data().pengeluaran || 0;
+    const updated = current - jumlah;
+
+    if (updated <= 0) {
+      await updateDoc(laporanRef, { pengeluaran: 0 });
+    } else {
+      await updateDoc(laporanRef, { pengeluaran: updated });
+    }
+  }
+
+  await deleteDoc(pengeluaranDoc);
 };
 
 // --- Main Page Component ---
@@ -41,7 +57,6 @@ export default function PengeluaranPage() {
   const [data, setData] = useState<any[]>([]);
   const [jumlah, setJumlah] = useState("");
   const [keterangan, setKeterangan] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -60,17 +75,11 @@ export default function PengeluaranPage() {
     }
 
     try {
-      if (editingId) {
-        await updatePengeluaran(editingId, jml, keterangan);
-        Alert.alert("Berhasil", "Pengeluaran diperbarui");
-      } else {
-        await addPengeluaran(jml, keterangan);
-        Alert.alert("Berhasil", "Pengeluaran disimpan");
-      }
+      await addPengeluaran(jml, keterangan);
+      Alert.alert("Berhasil", "Pengeluaran disimpan");
 
       setJumlah("");
       setKeterangan("");
-      setEditingId(null);
       fetchData();
     } catch (err) {
       console.log(err);
@@ -78,47 +87,27 @@ export default function PengeluaranPage() {
     }
   };
 
-  const handleEdit = (item: any) => {
-    setJumlah(item.jumlah.toString());
-    setKeterangan(item.keterangan);
-    setEditingId(item.id);
-  };
-
   const handleDelete = async (id: string) => {
-  const pengeluaranDoc = doc(db, 'pengeluaran', id);
-  const snapshot = await getDoc(pengeluaranDoc);
-
-  if (!snapshot.exists()) return;
-
-  const { jumlah, waktu } = snapshot.data();
-  const tanggal = new Date(waktu.seconds * 1000).toISOString().split('T')[0];
-  const laporanRef = doc(db, 'laporan', tanggal);
-
-  // Kurangi jumlah pengeluaran di laporan
-  const laporanSnapshot = await getDoc(laporanRef);
-  if (laporanSnapshot.exists()) {
-    const current = laporanSnapshot.data().pengeluaran || 0;
-    const updated = current - jumlah;
-
-    if (updated <= 0) {
-      await updateDoc(laporanRef, { pengeluaran: 0 });
-    } else {
-      await updateDoc(laporanRef, { pengeluaran: updated });
-    }
-  }
-
-  // Hapus dokumen pengeluaran
-  await deleteDoc(pengeluaranDoc);
-};
-
+    Alert.alert("Konfirmasi", "Hapus pengeluaran ini?", [
+      { text: "Batal" },
+      {
+        text: "Hapus",
+        onPress: async () => {
+          await deletePengeluaran(id);
+          fetchData();
+        },
+        style: "destructive",
+      },
+    ]);
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.form}>
-        <Text style={styles.subtitle}>{editingId ? "Edit" : "Tambah"} Pengeluaran</Text>
+        <Text style={styles.subtitle}>Tambah Pengeluaran</Text>
         <TextInput placeholder="Jumlah (Rp)" keyboardType="numeric" value={jumlah} onChangeText={setJumlah} style={styles.input} />
         <TextInput placeholder="Keterangan" value={keterangan} onChangeText={setKeterangan} style={styles.input} />
-        <Button title={editingId ? "Perbarui" : "Simpan"} onPress={handleSubmit} />
+        <Button title="Simpan" onPress={handleSubmit} />
       </View>
 
       <FlatList
@@ -127,11 +116,12 @@ export default function PengeluaranPage() {
         style={styles.list}
         renderItem={({ item }) => (
           <View style={styles.item}>
-            <Text>Rp {item.jumlah}</Text>
-            <Text>{item.keterangan}</Text>
-            <Text>{new Date(item.waktu.seconds * 1000).toLocaleString()}</Text>
-            <View style={styles.buttonGroup}>
-              <Button title="Edit" onPress={() => handleEdit(item)} />
+            <View style={styles.itemRow}>
+              <View style={styles.itemInfo}>
+                <Text style={styles.jumlah}>Rp {item.jumlah}</Text>
+                <Text style={styles.keterangan}>{item.keterangan}</Text>
+                <Text style={styles.waktu}>{new Date(item.waktu.seconds * 1000).toLocaleString()}</Text>
+              </View>
               <Button title="Hapus" onPress={() => handleDelete(item.id)} color="red" />
             </View>
           </View>
@@ -144,7 +134,6 @@ export default function PengeluaranPage() {
 // --- Styling ---
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
   subtitle: { fontSize: 18, fontWeight: "600", marginVertical: 8 },
   list: { marginBottom: 20 },
   item: {
@@ -153,15 +142,31 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginVertical: 6,
   },
-  buttonGroup: {
+  itemRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 6,
+    alignItems: "center",
+  },
+  itemInfo: {
+    flexShrink: 1,
+    marginRight: 10,
+  },
+  jumlah: {
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  keterangan: {
+    fontSize: 14,
+  },
+  waktu: {
+    fontSize: 12,
+    color: "#666",
   },
   form: {
     borderTopWidth: 1,
     borderColor: "#ccc",
     paddingTop: 10,
+    marginBottom: 10,
   },
   input: {
     borderWidth: 1,
