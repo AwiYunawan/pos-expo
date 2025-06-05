@@ -85,18 +85,32 @@ export default function PengeluaranPage() {
   };
 
   const handleDelete = async (id: string) => {
-    Alert.alert("Konfirmasi", "Hapus pengeluaran ini?", [
-      { text: "Batal" },
-      {
-        text: "Hapus",
-        onPress: async () => {
-          await deletePengeluaran(id);
-          fetchData();
-        },
-        style: "destructive",
-      },
-    ]);
-  };
+  const pengeluaranDoc = doc(db, 'pengeluaran', id);
+  const snapshot = await getDoc(pengeluaranDoc);
+
+  if (!snapshot.exists()) return;
+
+  const { jumlah, waktu } = snapshot.data();
+  const tanggal = new Date(waktu.seconds * 1000).toISOString().split('T')[0];
+  const laporanRef = doc(db, 'laporan', tanggal);
+
+  // Kurangi jumlah pengeluaran di laporan
+  const laporanSnapshot = await getDoc(laporanRef);
+  if (laporanSnapshot.exists()) {
+    const current = laporanSnapshot.data().pengeluaran || 0;
+    const updated = current - jumlah;
+
+    if (updated <= 0) {
+      await updateDoc(laporanRef, { pengeluaran: 0 });
+    } else {
+      await updateDoc(laporanRef, { pengeluaran: updated });
+    }
+  }
+
+  // Hapus dokumen pengeluaran
+  await deleteDoc(pengeluaranDoc);
+};
+
 
   return (
     <View style={styles.container}>
