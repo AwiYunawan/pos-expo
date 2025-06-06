@@ -18,14 +18,20 @@ const addPengeluaran = async (jumlah: number, keterangan: string) => {
 
   const today = new Date().toISOString().split("T")[0];
   const laporanRef = doc(db, "laporan", today);
-  await updateDoc(laporanRef, {
-    pengeluaran: jumlah,
-  }).catch(async () => {
+
+  const laporanSnapshot = await getDoc(laporanRef);
+  if (laporanSnapshot.exists()) {
+    const current = laporanSnapshot.data().pengeluaran || 0;
+    await updateDoc(laporanRef, {
+      pengeluaran: current + jumlah,
+    });
+  } else {
     await setDoc(laporanRef, { pengeluaran: jumlah, waktu });
-  });
+  }
 
   return docRef;
 };
+
 
 const deletePengeluaran = async (id: string) => {
   const pengeluaranDoc = doc(db, 'pengeluaran', id);
