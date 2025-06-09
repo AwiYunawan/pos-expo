@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, FlatList, StyleSheet, Alert } from 'react-native';
-import { db } from '../../FirebaseConfig';
+import { db } from '../../../FirebaseConfig';
 import { collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { Stack } from 'expo-router';
+import { DrawerToggleButton } from '@react-navigation/drawer';
 
 type Kategori = {
   id: string;
@@ -83,6 +85,13 @@ export default function KelolaKategoriScreen() {
   };
 
   return (
+    <>
+    <Stack.Screen
+        options={{
+          title: 'Kategori',
+          headerLeft: () => <DrawerToggleButton />,
+        }}
+      />
     <View style={screenStyles.container}>
       <Text style={screenStyles.title}>Kelola Kategori Menu</Text>
 
@@ -110,7 +119,9 @@ export default function KelolaKategoriScreen() {
         )}
       />
     </View>
+    </>
   );
+  
 }
 
 // Style untuk screen utama

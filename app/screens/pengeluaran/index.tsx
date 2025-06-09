@@ -1,8 +1,10 @@
 // app/screens/pengeluaran/PengeluaranPage.tsx
 import { addDoc, collection, deleteDoc, doc, getDocs, getDoc, setDoc, Timestamp, updateDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
+import { Stack } from 'expo-router';
+import { DrawerToggleButton } from '@react-navigation/drawer';
 import { Alert, Button, FlatList, StyleSheet, Text, TextInput, View } from "react-native";
-import { db } from "../../FirebaseConfig";
+import { db } from "../../../FirebaseConfig";
 
 // --- Service Functions ---
 const pengeluaranRef = collection(db, "pengeluaran");
@@ -108,6 +110,13 @@ export default function PengeluaranPage() {
   };
 
   return (
+    <>
+    <Stack.Screen
+        options={{
+          title: 'Pengeluaran',
+          headerLeft: () => <DrawerToggleButton />,
+        }}
+      />
     <View style={styles.container}>
       <View style={styles.form}>
         <Text style={styles.subtitle}>Tambah Pengeluaran</Text>
@@ -134,6 +143,7 @@ export default function PengeluaranPage() {
         )}
       />
     </View>
+    </>
   );
 }
 

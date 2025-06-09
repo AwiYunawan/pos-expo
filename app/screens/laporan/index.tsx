@@ -1,22 +1,18 @@
 import { Stack } from 'expo-router';
 import { DrawerToggleButton } from '@react-navigation/drawer';
-import { View, Text, Button } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text } from 'react-native';
 
-export default function TransaksiPage() {
-  const router = useRouter();
-
+export default function LaporanPage() {
   return (
     <>
       <Stack.Screen
         options={{
-          title: 'Transaksi',
+          title: 'Laporan',
           headerLeft: () => <DrawerToggleButton />,
         }}
       />
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>Halaman Transaksi</Text>
-        <Button title="Pilih Metode" onPress={() => router.push('/transaksi/metode')} />
+        <Text>Halaman Laporan</Text>
       </View>
     </>
   );
