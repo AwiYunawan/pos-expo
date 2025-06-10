@@ -1,8 +1,8 @@
 import { Picker } from "@react-native-picker/picker";
+import { DrawerToggleButton } from "@react-navigation/drawer";
+import { Stack } from "expo-router";
 import { addDoc, collection, getDocs } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
-import { Stack } from 'expo-router';
-import { DrawerToggleButton } from '@react-navigation/drawer';
 import { ActivityIndicator, Alert, Button, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { db } from "../../../FirebaseConfig";
 
@@ -55,6 +55,36 @@ export default function KelolaMenu() {
     }
   };
 
+  const [menuList, setMenuList] = useState<{ id: string; nama: string; harga: number; kategoriNama: string }[]>([]);
+  const [menuLoading, setMenuLoading] = useState(true);
+
+  const fetchMenu = async () => {
+    setMenuLoading(true);
+    const querySnapshot = await getDocs(collection(db, "menu"));
+    const data: { id: string; nama: string; harga: number; kategoriNama: string }[] = [];
+    querySnapshot.forEach((doc) => {
+      const d = doc.data();
+      data.push({
+        id: doc.id,
+        nama: d.nama,
+        harga: d.harga,
+        kategoriNama: d.kategoriNama,
+      });
+    });
+    setMenuList(data);
+    setMenuLoading(false);
+  };
+
+  useEffect(() => {
+    fetchMenu();
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      fetchMenu();
+    }
+  }, [loading]);
+
   return (
     <>
       <Stack.Screen
@@ -81,6 +111,67 @@ export default function KelolaMenu() {
         </View>
 
         <View style={{ marginTop: 20 }}>{loading ? <ActivityIndicator /> : <Button title="Simpan Menu" onPress={handleSubmit} />}</View>
+        <Text style={{ fontWeight: "bold", marginTop: 24, fontSize: 16 }}>Daftar Menu</Text>
+        {menuList.map((menu) => (
+          <View
+            key={menu.id}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: 12,
+              borderBottomWidth: 1,
+              borderColor: "#eee",
+            }}
+          >
+            <View>
+              <Text style={{ fontWeight: "bold" }}>{menu.nama}</Text>
+              <Text>Harga: Rp{menu.harga.toLocaleString("id-ID")}</Text>
+              <Text>Kategori: {menu.kategoriNama}</Text>
+            </View>
+            <View style={{ flexDirection: "row" }}>
+              <Button
+                title="Edit"
+                onPress={() => {
+                  setNamaMenu(menu.nama);
+                  setHarga(menu.harga.toString());
+                  const kategori = kategoriList.find((k) => k.nama === menu.kategoriNama);
+                  setSelectedKategori(kategori ? kategori.id : null);
+                }}
+              />
+              <View style={{ width: 8 }} />
+              <Button
+                title="Hapus"
+                color="red"
+                onPress={async () => {
+                  Alert.alert(
+                    "Konfirmasi",
+                    `Hapus menu "${menu.nama}"?`,
+                    [
+                      { text: "Batal", style: "cancel" },
+                      {
+                        text: "Hapus",
+                        style: "destructive",
+                        onPress: async () => {
+                          setMenuLoading(true);
+                          try {
+                            await (await import("firebase/firestore")).deleteDoc((await import("firebase/firestore")).doc(db, "menu", menu.id));
+                            fetchMenu();
+                          } catch (e) {
+                            Alert.alert("Error", "Gagal menghapus menu");
+                          } finally {
+                            setMenuLoading(false);
+                          }
+                        },
+                      },
+                    ],
+                    { cancelable: true }
+                  );
+                }}
+              />
+            </View>
+          </View>
+        ))}
       </ScrollView>
     </>
   );

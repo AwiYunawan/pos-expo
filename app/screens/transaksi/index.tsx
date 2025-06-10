@@ -4,25 +4,53 @@ import { useEffect, useState } from "react";
 import { Button, FlatList, Text, TextInput, View } from "react-native";
 import { db } from "../../../FirebaseConfig";
 import { DrawerToggleButton } from "@react-navigation/drawer";
+import { Picker } from "@react-native-picker/picker"; // Install: expo install @react-native-picker/picker
 
 export default function TransaksiPage() {
   const router = useRouter();
-  const [menuList, setMenuList] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("Semua");
+  const [kategoriList, setKategoriList] = useState<string[]>([]);
+
+  type MenuItem = {
+  id: string;
+  nama: string;
+  harga: number;
+  kategoriNama: string;
+  quantity: number;
+};
+
+const [menuList, setMenuList] = useState<MenuItem[]>([]);
+
 
   useEffect(() => {
-    const fetchMenu = async () => {
-      const querySnapshot = await getDocs(collection(db, "menu"));
-      const menuData = querySnapshot.docs.map((doc) => ({
+  const fetchMenu = async () => {
+    const querySnapshot = await getDocs(collection(db, "menu"));
+    const menuData: MenuItem[] = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
         id: doc.id,
-        ...doc.data(),
+        nama: data.nama,
+harga: parseInt(data.harga),
+        kategoriNama: data.kategoriNama,
         quantity: 0,
-      }));
-      setMenuList(menuData);
-    };
-    fetchMenu();
-  }, []);
+      };
+    });
+
+    setMenuList(menuData);
+
+    // Ambil kategori unik secara dinamis
+    const kategoriUnik = [
+      "Semua",
+      ...Array.from(new Set(menuData.map((item) => item.kategoriNama))),
+    ];
+    setKategoriList(kategoriUnik);
+  };
+
+  fetchMenu();
+}, []);
+
 
   const handleQuantityChange = (itemId: string, change: number) => {
     setMenuList((prevList) =>
@@ -46,6 +74,13 @@ export default function TransaksiPage() {
     });
   };
 
+  // Filter berdasarkan pencarian dan kategori
+  const filteredMenu = menuList.filter(
+    (item) =>
+      item.nama?.toLowerCase().includes(search.toLowerCase()) &&
+      (selectedCategory === "Semua" || item.kategoriNama === selectedCategory)
+  );
+
   return (
     <>
       <Stack.Screen
@@ -61,12 +96,20 @@ export default function TransaksiPage() {
           onChangeText={setSearch}
           style={{ borderWidth: 1, padding: 8, marginBottom: 10 }}
         />
+
+        <View style={{ borderWidth: 1, borderRadius: 5, marginBottom: 10 }}>
+          <Picker
+            selectedValue={selectedCategory}
+            onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+          >
+            {kategoriList.map((kategori) => (
+              <Picker.Item key={kategori} label={kategori} value={kategori} />
+            ))}
+          </Picker>
+        </View>
+
         <FlatList
-          data={menuList.filter(
-            (item) =>
-              typeof item.nama === "string" &&
-              item.nama.toLowerCase().includes(search.toLowerCase())
-          )}
+          data={filteredMenu}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View
@@ -74,11 +117,15 @@ export default function TransaksiPage() {
                 flexDirection: "row",
                 justifyContent: "space-between",
                 marginBottom: 10,
+                alignItems: "center",
               }}
             >
-              <Text>
-                {item.nama} - Rp{item.harga}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text>{item.nama} - Rp{item.harga}</Text>
+                <Text style={{ color: "gray", fontSize: 12 }}>
+                  Kategori: {item.kategoriNama}
+                </Text>
+              </View>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Button title="-" onPress={() => handleQuantityChange(item.id, -1)} />
                 <Text style={{ marginHorizontal: 10 }}>{item.quantity}</Text>
@@ -87,6 +134,7 @@ export default function TransaksiPage() {
             </View>
           )}
         />
+
         <Button title="Pilih Metode" onPress={handleNext} />
       </View>
     </>
