@@ -58,10 +58,10 @@ export default function ReceiptPage() {
 
       const menuTerjualBaru: Record<string, number> = {};
       parsedItems.forEach((item: any) => {
-        if (menuTerjualBaru[item.name]) {
-          menuTerjualBaru[item.name] += item.quantity;
+        if (menuTerjualBaru[item.nama]) {
+          menuTerjualBaru[item.nama] += item.quantity;
         } else {
-          menuTerjualBaru[item.name] = item.quantity;
+          menuTerjualBaru[item.nama] = item.quantity;
         }
       });
 
@@ -116,7 +116,7 @@ export default function ReceiptPage() {
 
           return (
             <Text key={idx}>
-              {item.name} x{quantity} - Rp{subtotal.toLocaleString()}
+              {item.nama} x{quantity} - Rp{subtotal.toLocaleString()}
             </Text>
           );
         })}
