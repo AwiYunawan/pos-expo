@@ -1,16 +1,17 @@
-// app/screens/pengeluaran/PengeluaranPage.tsx
-import { addDoc, collection, deleteDoc, doc, getDocs, getDoc, setDoc, Timestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, getDoc, setDoc, Timestamp, updateDoc, query, orderBy } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import { Stack } from 'expo-router';
 import { DrawerToggleButton } from '@react-navigation/drawer';
-import { Alert, Button, FlatList, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Button, FlatList, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import { db } from "../../../FirebaseConfig";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
-// --- Service Functions ---
+// --- Service ---
 const pengeluaranRef = collection(db, "pengeluaran");
 
 const getAllPengeluaran = async () => {
-  const snapshot = await getDocs(pengeluaranRef);
+  const q = query(pengeluaranRef, orderBy("waktu", "desc"));
+  const snapshot = await getDocs(q);
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 };
 
@@ -20,8 +21,8 @@ const addPengeluaran = async (jumlah: number, keterangan: string) => {
 
   const today = new Date().toISOString().split("T")[0];
   const laporanRef = doc(db, "laporan", today);
-
   const laporanSnapshot = await getDoc(laporanRef);
+
   if (laporanSnapshot.exists()) {
     const current = laporanSnapshot.data().pengeluaran || 0;
     await updateDoc(laporanRef, {
@@ -34,11 +35,9 @@ const addPengeluaran = async (jumlah: number, keterangan: string) => {
   return docRef;
 };
 
-
 const deletePengeluaran = async (id: string) => {
   const pengeluaranDoc = doc(db, 'pengeluaran', id);
   const snapshot = await getDoc(pengeluaranDoc);
-
   if (!snapshot.exists()) return;
 
   const { jumlah, waktu } = snapshot.data();
@@ -49,22 +48,19 @@ const deletePengeluaran = async (id: string) => {
   if (laporanSnapshot.exists()) {
     const current = laporanSnapshot.data().pengeluaran || 0;
     const updated = current - jumlah;
-
-    if (updated <= 0) {
-      await updateDoc(laporanRef, { pengeluaran: 0 });
-    } else {
-      await updateDoc(laporanRef, { pengeluaran: updated });
-    }
+    await updateDoc(laporanRef, { pengeluaran: Math.max(updated, 0) });
   }
 
   await deleteDoc(pengeluaranDoc);
 };
 
-// --- Main Page Component ---
+// --- Main Component ---
 export default function PengeluaranPage() {
   const [data, setData] = useState<any[]>([]);
   const [jumlah, setJumlah] = useState("");
   const [keterangan, setKeterangan] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -85,7 +81,6 @@ export default function PengeluaranPage() {
     try {
       await addPengeluaran(jml, keterangan);
       Alert.alert("Berhasil", "Pengeluaran disimpan");
-
       setJumlah("");
       setKeterangan("");
       fetchData();
@@ -109,40 +104,75 @@ export default function PengeluaranPage() {
     ]);
   };
 
+  // Filter berdasarkan tanggal
+  const filteredData = selectedDate
+    ? data.filter((item) => {
+        const itemDate = new Date(item.waktu.seconds * 1000);
+        return (
+          itemDate.toDateString() === selectedDate.toDateString()
+        );
+      })
+    : data;
+
   return (
     <>
-    <Stack.Screen
+      <Stack.Screen
         options={{
           title: 'Pengeluaran',
           headerLeft: () => <DrawerToggleButton />,
         }}
       />
-    <View style={styles.container}>
-      <View style={styles.form}>
-        <Text style={styles.subtitle}>Tambah Pengeluaran</Text>
-        <TextInput placeholder="Jumlah (Rp)" keyboardType="numeric" value={jumlah} onChangeText={setJumlah} style={styles.input} />
-        <TextInput placeholder="Keterangan" value={keterangan} onChangeText={setKeterangan} style={styles.input} />
-        <Button title="Simpan" onPress={handleSubmit} />
-      </View>
+      <View style={styles.container}>
+        <View style={styles.form}>
+          <Text style={styles.subtitle}>Tambah Pengeluaran</Text>
+          <TextInput placeholder="Jumlah (Rp)" keyboardType="numeric" value={jumlah} onChangeText={setJumlah} style={styles.input} />
+          <TextInput placeholder="Keterangan" value={keterangan} onChangeText={setKeterangan} style={styles.input} />
+          <Button title="Simpan" onPress={handleSubmit} />
+        </View>
 
-      <FlatList
-        data={data}
-        keyExtractor={(item) => item.id}
-        style={styles.list}
-        renderItem={({ item }) => (
-          <View style={styles.item}>
-            <View style={styles.itemRow}>
-              <View style={styles.itemInfo}>
-                <Text style={styles.jumlah}>Rp {item.jumlah}</Text>
-                <Text style={styles.keterangan}>{item.keterangan}</Text>
-                <Text style={styles.waktu}>{new Date(item.waktu.seconds * 1000).toLocaleString()}</Text>
+        <View style={{ marginBottom: 10 }}>
+          <Button
+            title={
+              selectedDate
+                ? `Filter: ${selectedDate.toLocaleDateString()}`
+                : "Filter Tanggal"
+            }
+            onPress={() => setShowPicker(true)}
+          />
+          {selectedDate && (
+            <Button title="Reset Filter" onPress={() => setSelectedDate(null)} />
+          )}
+          {showPicker && (
+            <DateTimePicker
+              value={selectedDate || new Date()}
+              mode="date"
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              onChange={(event, date) => {
+                setShowPicker(false);
+                if (date) setSelectedDate(date);
+              }}
+            />
+          )}
+        </View>
+
+        <FlatList
+          data={filteredData}
+          keyExtractor={(item) => item.id}
+          style={styles.list}
+          renderItem={({ item }) => (
+            <View style={styles.item}>
+              <View style={styles.itemRow}>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.jumlah}>Rp {item.jumlah}</Text>
+                  <Text style={styles.keterangan}>{item.keterangan}</Text>
+                  <Text style={styles.waktu}>{new Date(item.waktu.seconds * 1000).toLocaleString()}</Text>
+                </View>
+                <Button title="Hapus" onPress={() => handleDelete(item.id)} color="red" />
               </View>
-              <Button title="Hapus" onPress={() => handleDelete(item.id)} color="red" />
             </View>
-          </View>
-        )}
-      />
-    </View>
+          )}
+        />
+      </View>
     </>
   );
 }

@@ -1,9 +1,17 @@
 import { db } from "@/FirebaseConfig";
 import { DrawerToggleButton } from "@react-navigation/drawer";
 import { Stack } from "expo-router";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import {
+  Button,
+  FlatList,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 interface LaporanData {
   id: string;
@@ -11,39 +19,49 @@ interface LaporanData {
   masukRekening: number;
   masukToko: number;
   pengeluaran: number;
-  waktu?: any; // gunakan Timestamp jika diimpor dari Firebase
+  waktu?: any;
   menuTerjual?: Record<string, number>;
 }
 
-
 export default function LaporanPage() {
-  const [laporanList, setLaporanList] = useState<LaporanData[]>([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [laporan, setLaporan] = useState<LaporanData | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+
+  const formatDateId = (date: Date) =>
+    date.toISOString().split("T")[0]; // "yyyy-mm-dd"
+
+  const fetchLaporanByDate = async (date: Date) => {
+    const id = formatDateId(date);
+    const docRef = doc(db, "laporan", id);
+    const snapshot = await getDoc(docRef);
+
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      setLaporan({
+        id,
+        jumlahTransaksi: data.jumlahTransaksi ?? 0,
+        masukRekening: data.masukRekening ?? 0,
+        masukToko: data.masukToko ?? 0,
+        pengeluaran: data.pengeluaran ?? 0,
+        waktu: data.waktu,
+        menuTerjual: data.menuTerjual ?? {},
+      });
+    } else {
+      setLaporan(null); // jika tidak ada data di tanggal itu
+    }
+  };
 
   useEffect(() => {
-    const fetchLaporan = async () => {
-      const querySnapshot = await getDocs(collection(db, "laporan"));
-      const data: LaporanData[] = querySnapshot.docs.map((doc) => {
-        const docData = doc.data();
-        return {
-          id: doc.id,
-          jumlahTransaksi: docData.jumlahTransaksi ?? 0,
-          masukRekening: docData.masukRekening ?? 0,
-          masukToko: docData.masukToko ?? 0,
-          pengeluaran: docData.pengeluaran ?? 0,
-          waktu: docData.waktu,
-          menuTerjual: docData.menuTerjual ?? {},
-        };
-      });
-      data.sort((a, b) => {
-        const waktuA = a.waktu?.toDate?.() || new Date(a.id);
-        const waktuB = b.waktu?.toDate?.() || new Date(b.id);
-        return waktuB.getTime() - waktuA.getTime();
-      });
-      setLaporanList(data);
-    };
+    fetchLaporanByDate(selectedDate);
+  }, [selectedDate]);
 
-    fetchLaporan();
-  }, []);
+  const onDateChange = (_event: any, selected?: Date) => {
+    setShowPicker(false);
+    if (selected) {
+      setSelectedDate(selected);
+    }
+  };
 
   return (
     <>
@@ -53,28 +71,47 @@ export default function LaporanPage() {
           headerLeft: () => <DrawerToggleButton />,
         }}
       />
-      <FlatList
-        data={laporanList}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.container}
-        renderItem={({ item }) => (
+
+      <View style={styles.container}>
+        <Button
+          title={`Pilih Tanggal: ${formatDateId(selectedDate)}`}
+          onPress={() => setShowPicker(true)}
+        />
+        {showPicker && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={onDateChange}
+          />
+        )}
+
+        {laporan ? (
           <View style={styles.card}>
-            <Text style={styles.date}>📅 {item.id}</Text>
-            <Text>🧾 Jumlah Transaksi: {item.jumlahTransaksi}</Text>
-            <Text>💰 Masuk Toko: Rp{item.masukToko.toLocaleString()}</Text>
-            <Text>🏦 Masuk Rekening: Rp{item.masukRekening.toLocaleString()}</Text>
-            <Text>📉 Pengeluaran: Rp{item.pengeluaran.toLocaleString()}</Text>
+            <Text style={styles.date}>📅 {laporan.id}</Text>
+            <Text>🧾 Jumlah Transaksi: {laporan.jumlahTransaksi}</Text>
+            <Text>
+              💰 Masuk Toko: Rp{laporan.masukToko.toLocaleString("id-ID")}
+            </Text>
+            <Text>
+              🏦 Masuk Rekening: Rp{laporan.masukRekening.toLocaleString("id-ID")}
+            </Text>
+            <Text>
+              📉 Pengeluaran: Rp{laporan.pengeluaran.toLocaleString("id-ID")}
+            </Text>
 
             <Text style={styles.menuHeader}>🍽️ Menu Terjual:</Text>
-            {item.menuTerjual &&
-              Object.entries(item.menuTerjual).map(([nama, jumlah]: [string, any]) => (
-                <Text key={nama}>
-                  - {nama}: {jumlah}x
-                </Text>
+            {laporan.menuTerjual &&
+              Object.entries(laporan.menuTerjual).map(([nama, jumlah]) => (
+                <Text key={nama}>- {nama}: {jumlah}x</Text>
               ))}
           </View>
+        ) : (
+          <Text style={{ marginTop: 20, textAlign: "center" }}>
+            Tidak ada data untuk tanggal ini.
+          </Text>
         )}
-      />
+      </View>
     </>
   );
 }
@@ -84,12 +121,13 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
     backgroundColor: "#fff",
+    flex: 1,
   },
   card: {
     backgroundColor: "#f5f5f5",
     padding: 16,
     borderRadius: 10,
-    marginBottom: 16,
+    marginTop: 16,
     elevation: 2,
   },
   date: {

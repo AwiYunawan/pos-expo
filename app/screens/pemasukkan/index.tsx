@@ -1,62 +1,64 @@
-import { db } from "@/FirebaseConfig";
+import { db , } from "@/FirebaseConfig";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { DrawerToggleButton } from "@react-navigation/drawer";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { Stack, useRouter } from "expo-router";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  updateDoc,
-  getDoc,
-} from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Button,
-} from "react-native";
+import { Alert, Button, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Timestamp } from "firebase/firestore";
+
 
 export default function PemasukanIndex() {
   const [transaksiList, setTransaksiList] = useState<any[]>([]);
+  const [filteredList, setFilteredList] = useState<any[]>([]);
+  const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     fetchTransaksi();
   }, []);
+  type Transaksi = {
+    id: string;
+    waktu: Timestamp; // atau Timestamp dari Firebase modular
+    // tambahkan properti lain kalau ada, misalnya jumlah, metodePembayaran, dll
+  };
 
   const fetchTransaksi = async () => {
     const querySnapshot = await getDocs(collection(db, "transaksi"));
-    const data = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const data: Transaksi[] = querySnapshot.docs
+      .map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+          } as Transaksi)
+      ) // <--- casting tiap item jadi tipe Transaksi
+      .sort((a, b) => b.waktu.toDate().getTime() - a.waktu.toDate().getTime());
+
     setTransaksiList(data);
+    setFilteredList(data);
+  };
+
+  const filterByDate = (date: Date) => {
+    const filtered = transaksiList.filter((item) => isSameDay(item.waktu.toDate(), date));
+    setFilteredList(filtered);
   };
 
   const handleDelete = async (transaksi: any) => {
     const confirm = await new Promise((resolve) => {
-      Alert.alert(
-        "Hapus Transaksi",
-        "Apakah kamu yakin ingin menghapus transaksi ini?",
-        [
-          { text: "Batal", style: "cancel", onPress: () => resolve(false) },
-          { text: "Hapus", style: "destructive", onPress: () => resolve(true) },
-        ]
-      );
+      Alert.alert("Hapus Transaksi", "Apakah kamu yakin ingin menghapus transaksi ini?", [
+        { text: "Batal", style: "cancel", onPress: () => resolve(false) },
+        { text: "Hapus", style: "destructive", onPress: () => resolve(true) },
+      ]);
     });
 
     if (!confirm) return;
 
     try {
-      // 1. Hapus transaksi
       await deleteDoc(doc(db, "transaksi", transaksi.id));
 
-      // 2. Update laporan
       const tanggal = format(transaksi.waktu.toDate(), "yyyy-MM-dd");
       const laporanRef = doc(db, "laporan", tanggal);
       const laporanSnap = await getDoc(laporanRef);
@@ -65,7 +67,6 @@ export default function PemasukanIndex() {
         const laporanData = laporanSnap.data();
         const menuTerjual = { ...laporanData.menuTerjual };
 
-        // Kurangi quantity tiap menu
         transaksi.items.forEach((item: any) => {
           const nama = item.nama;
           if (menuTerjual[nama]) {
@@ -76,19 +77,22 @@ export default function PemasukanIndex() {
 
         await updateDoc(laporanRef, {
           jumlahTransaksi: Math.max((laporanData.jumlahTransaksi || 1) - 1, 0),
-          [`masuk${transaksi.metode === "QRIS" ? "Rekening" : "Toko"}`]: Math.max(
-            (laporanData[`masuk${transaksi.metode === "QRIS" ? "Rekening" : "Toko"}`] || 0) -
-              (transaksi.totalHarga || 0),
-            0
-          ),
+          [`masuk${transaksi.metode === "QRIS" ? "Rekening" : "Toko"}`]: Math.max((laporanData[`masuk${transaksi.metode === "QRIS" ? "Rekening" : "Toko"}`] || 0) - (transaksi.totalHarga || 0), 0),
           menuTerjual,
         });
       }
 
-      // Refresh data
       fetchTransaksi();
     } catch (error) {
       console.error("Gagal menghapus transaksi:", error);
+    }
+  };
+
+  const onDateChange = (_: any, selectedDate?: Date) => {
+    setShowPicker(false);
+    if (selectedDate) {
+      setFilterDate(selectedDate);
+      filterByDate(selectedDate);
     }
   };
 
@@ -96,14 +100,31 @@ export default function PemasukanIndex() {
     <>
       <Stack.Screen
         options={{
-          title: "Transaksi",
+          title: "Pemasukkan",
           headerLeft: () => <DrawerToggleButton />,
         }}
       />
       <View style={styles.container}>
         <Text style={styles.header}>Daftar Transaksi</Text>
+
+        <View style={styles.filterContainer}>
+          <Button title={filterDate ? `Filter: ${format(filterDate, "dd MMM yyyy")}` : "Pilih Tanggal"} onPress={() => setShowPicker(true)} />
+          {filterDate && (
+            <Button
+              title="Reset Filter"
+              onPress={() => {
+                setFilterDate(null);
+                setFilteredList(transaksiList);
+              }}
+              color="gray"
+            />
+          )}
+        </View>
+
+        {showPicker && <DateTimePicker value={filterDate || new Date()} mode="date" display={Platform.OS === "ios" ? "inline" : "default"} onChange={onDateChange} />}
+
         <FlatList
-          data={transaksiList}
+          data={filteredList}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -116,9 +137,7 @@ export default function PemasukanIndex() {
                   })
                 }
               >
-                <Text style={styles.date}>
-                  {format(item.waktu.toDate(), "dd MMM yyyy HH:mm")}
-                </Text>
+                <Text style={styles.date}>{format(item.waktu.toDate(), "dd MMM yyyy HH:mm")}</Text>
                 <Text>Total: Rp{item.totalHarga}</Text>
                 <Text>Metode: {item.metode}</Text>
               </TouchableOpacity>
@@ -141,6 +160,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 16,
+  },
+  filterContainer: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 12,
+    alignItems: "center",
   },
   card: {
     backgroundColor: "#f0f0f0",
