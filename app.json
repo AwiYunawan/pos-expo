@@ -33,10 +33,18 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/perf"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "aada12d4-13d3-4d06-94cf-1c3c0ad9232f"
+      }
     }
   }
 }
