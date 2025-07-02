@@ -1,10 +1,10 @@
+import { Picker } from "@react-native-picker/picker"; // Install: expo install @react-native-picker/picker
+import { DrawerToggleButton } from "@react-navigation/drawer";
 import { Stack, useRouter } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { Button, FlatList, Text, TextInput, View } from "react-native";
 import { db } from "../../../FirebaseConfig";
-import { DrawerToggleButton } from "@react-navigation/drawer";
-import { Picker } from "@react-native-picker/picker"; // Install: expo install @react-native-picker/picker
 
 export default function TransaksiPage() {
   const router = useRouter();
@@ -32,22 +32,18 @@ const [menuList, setMenuList] = useState<MenuItem[]>([]);
       return {
         id: doc.id,
         nama: data.nama,
-harga: parseInt(data.harga),
+        harga: parseInt(data.harga),
         kategoriNama: data.kategoriNama,
         quantity: 0,
       };
     });
-
     setMenuList(menuData);
-
-    // Ambil kategori unik secara dinamis
     const kategoriUnik = [
       "Semua",
       ...Array.from(new Set(menuData.map((item) => item.kategoriNama))),
     ];
     setKategoriList(kategoriUnik);
   };
-
   fetchMenu();
 }, []);
 

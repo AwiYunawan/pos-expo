@@ -39,7 +39,6 @@ export default function ReceiptPage() {
       const tanggal = format(now, "yyyy-MM-dd");
       const waktu = now;
 
-      // Siapkan data transaksi
       const transaksiData = {
         items: parsedItems,
         metode: metodeStr,
@@ -49,10 +48,34 @@ export default function ReceiptPage() {
         waktu,
       };
 
-      // Simpan ke collection transaksi
+      // 🔥 Measure response time
+      const start = performance.now();
       await addDoc(collection(db, "transaksi"), transaksiData);
+      const end = performance.now();
+      const responseTime = end - start;
+      console.log("Response time:", responseTime, "ms");
 
-      // Persiapan update laporan
+      // 🔥 Save response time to performance collection
+      const perfCollection = collection(db, "performance");
+      const perfSnapshot = await getDoc(doc(db, "performance", "counter"));
+      let counter = 1;
+
+      if (perfSnapshot.exists()) {
+        const data = perfSnapshot.data();
+        counter = data.count + 1;
+        await updateDoc(doc(db, "performance", "counter"), { count: counter });
+      } else {
+        // create counter document if not exist
+        await setDoc(doc(db, "performance", "counter"), { count: counter });
+      }
+
+      const docName = `transaksi ${counter}`;
+      await setDoc(doc(db, "performance", docName), {
+        responseTime,
+        timestamp: waktu,
+      });
+
+      // 🔥 Update laporan
       const laporanRef = doc(db, "laporan", tanggal);
       const laporanSnap = await getDoc(laporanRef);
 
@@ -66,9 +89,7 @@ export default function ReceiptPage() {
       });
 
       if (laporanSnap.exists()) {
-        // Jika laporan hari ini sudah ada → update
         const existing = laporanSnap.data();
-
         const updatedMenu = { ...existing.menuTerjual };
         for (const [name, qty] of Object.entries(menuTerjualBaru)) {
           updatedMenu[name] = (updatedMenu[name] || 0) + qty;
@@ -81,7 +102,6 @@ export default function ReceiptPage() {
           waktu,
         });
       } else {
-        // Jika belum ada → buat dokumen baru
         await setDoc(laporanRef, {
           jumlahTransaksi: 1,
           masukRekening: metodeStr === "QRIS" ? total : 0,
